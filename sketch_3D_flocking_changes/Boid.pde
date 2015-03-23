@@ -1,16 +1,16 @@
-class Boid {
+class Boid extends VerletParticle {
 
   Vec3D loc;
   Vec3D vel;
   Vec3D acc;
-  Matrix4x4 mat;
   float maxforce;
   float maxspeed;
-
   float neighborDist;
   float desiredSeparation;
+  VerletSpring spring;
 
-  Boid(Vec3D l, float ms, float mf, float nd, float sep) {
+  Boid(Vec3D l, float ms, float mf, float nd, float sep, ParticleConstraint sphere) {
+    super(l);
     loc=l;
     acc = new Vec3D();
     vel = Vec3D.randomVector();
@@ -18,12 +18,24 @@ class Boid {
     maxforce = mf;
     neighborDist=nd*nd;
     desiredSeparation=sep;
+    Vec3D origin = new Vec3D(0,0,0);
+    VerletParticle p = new VerletParticle(origin);
+    physics.addParticle(p);
+    physics.addParticle(this);
+    spring = new VerletSpring(p, this, (float)SPHERE_RADIUS,10.0f);
+    physics.addSpring(spring);
+    p.lock();
   }
 
   void run(ArrayList boids) {
     flock(boids);
     update();
+    // ---> world();
     render();
+  }
+  
+  void applyForce(Vec3D force){
+    acc.addSelf(force);
   }
 
   // We accumulate a new acceleration each time based on three rules
@@ -33,8 +45,8 @@ class Boid {
     Vec3D coh = cohesion(boids);   // Cohesion
     // Arbitrarily weight these forces
     sep.scaleSelf(25.0);
-    ali.scaleSelf(25.0);
-    coh.scaleSelf(25.0);
+    ali.scaleSelf(4.0);
+    coh.scaleSelf(5.0);
     // Add the force vectors to acceleration
     acc.addSelf(sep);
     acc.addSelf(ali);
@@ -43,13 +55,10 @@ class Boid {
 
   // Method to update location
   void update() {
-    // Update velocity
+    //this.update();
     vel.addSelf(acc);
-    // Limit speed
     vel.limit(maxspeed);
-
     loc.addSelf(vel);
-    // Reset accelertion to 0 each cycle
     acc.clear();
   }
 
@@ -61,9 +70,6 @@ class Boid {
     acc.addSelf(steer(target, true));
   }
 
-
-  // A method that calculates a steering vector towards a target
-  // Takes a second argument, if true, it slows down as it approaches the target
   Vec3D steer(Vec3D target, boolean slowdown) {
     Vec3D steer;  // The steering vector
     Vec3D desired = target.sub(loc);  // A vector pointing from the location to the target
@@ -73,8 +79,8 @@ class Boid {
       // Normalize desired
       desired.normalize();
       // Two options for desired vector magnitude (1 -- based on distance, 2 -- maxspeed)
-      if ((slowdown) && (d < 100.0f)) desired.scaleSelf(maxspeed*(d/100.0f)); // This damping is somewhat arbitrary
-      else desired.scaleSelf(maxspeed);
+     // ----> if ((slowdown) && (d < 100.0f)) desired.scaleSelf(maxspeed*(d/100.0f)); // This damping is somewhat arbitrary
+      desired.scaleSelf(maxspeed);
       // Steering = Desired minus Velocity
       steer = desired.sub(vel).limit(maxforce);  // Limit to maximum steering force
     } else {
@@ -91,6 +97,10 @@ class Boid {
     sphere(1);
     popMatrix();
   }
+
+void world(){
+  
+}
 
 
   // Separation
